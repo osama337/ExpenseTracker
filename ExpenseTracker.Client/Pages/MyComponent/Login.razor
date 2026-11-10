@@ -1,0 +1,102 @@
+﻿@page "/login"
+@layout AuthLayout
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+
+        <div class="text-center mb-4">
+            <div class="brand-icon">E</div>
+            <h2 class="brand-title">ExpenseTracker</h2>
+            <p class="text-secondary mb-0">Welcome back! Login to continue.</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger py-2">@ErrorMessage</div>
+        }
+
+        <EditForm Model="@Model" OnValidSubmit="LoginAsync">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Email Address</label>
+                <InputText @bind-Value="Model.Email"
+                           class="form-control"
+                           placeholder="name@example.com" />
+                <ValidationMessage For="@(() => Model.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <InputText @bind-Value="Model.Password"
+                           type="password"
+                           class="form-control"
+                           placeholder="Enter your password" />
+                <ValidationMessage For="@(() => Model.Password)" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mt-2" disabled="@IsLoad">
+                @if (IsLoad)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>Signing in...</span>
+                }
+                else
+                {
+                    <span>Sign In</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="text-center mt-4">
+            <span class="text-secondary">Don't have an account?</span>
+            <a href="/register">Create account</a>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private LoginRequest Model = new();
+    private string ErrorMessage = "";
+    private bool IsLoad;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AuthService.IsLoggedInAsync())
+            Navigation.NavigateTo("/");
+    }
+
+    private async Task LoginAsync()
+    {
+        IsLoad = true;
+        ErrorMessage = "";
+
+        try
+        {
+            var response = await AuthService.LoginAsync(Model);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                ErrorMessage = "Invalid email or password.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Unable to connect to the server.";
+        }
+        finally
+        {
+            IsLoad = false;
+        }
+    }
+}

@@ -1,0 +1,169 @@
+﻿@page "/admin"
+@layout AuthLayout
+@using ExpenseTracker.Client.Models
+@using ExpenseTracker.Client.Services
+@inject AdminService AdminService
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<div class="bg-light min-vh-100">
+
+    <!-- Nav Bar-->
+    <nav class="navbar navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <span class="navbar-brand fw-bold">ExpenseTracker</span>
+
+            <div class="d-flex align-items-center gap-3">
+                <a class="btn btn-outline-light btn-sm" href="expenses">My Expenses</a>
+
+                <div class="d-flex align-items-center gap-2 text-white">
+                    <span class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center fw-bold"
+                          style="width:36px;height:36px;">
+                        @(string.IsNullOrEmpty(userName) ? "?" : userName[0].ToString().ToUpper())
+                    </span>
+                    <span>@userName</span>
+                </div>
+                <button class="btn btn-outline-light btn-sm" @onclick="Logout">Logout</button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Dashboard -->
+    <div class="container py-4">
+
+        <h3 class="mb-4">Admin Dashboard</h3>
+
+        @if (message != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @message
+                <button type="button" class="btn-close" @onclick="() => message = null"></button>
+            </div>
+        }
+
+        @if (error != null)
+        {
+            <div class="alert alert-danger">@error</div>
+        }
+        else if (stats == null || users == null)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else
+        {
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                            <h6 class="text-muted">Users</h6>
+                            <h3 class="mb-0">@stats.TotalUsers</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                            <h6 class="text-muted">Expenses</h6>
+                            <h3 class="mb-0">@stats.TotalExpenses</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-semibold">Users</div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var u in users)
+                            {
+                                <tr>
+                                    <td>@u.FullName</td>
+                                    <td>@u.Email</td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => DeleteUser(u)">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+    </div>
+</div>
+
+@code {
+    private AdminStats? stats;
+    private List<UserDto>? users;
+    private string? error;
+    private string? message;
+    private string userName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Auth.IsLoggedInAsync() || !await Auth.IsAdminAsync())
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        userName = await Auth.GetFullNameAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            stats = await AdminService.GetStatsAsync();
+            users = await AdminService.GetUsersAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            error = ex.StatusCode == System.Net.HttpStatusCode.Forbidden
+                 || ex.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                ? "You are not allowed to see this page."
+                : "Could not load data.";
+        }
+    }
+
+    private async Task DeleteUser(UserDto user)
+    {
+        var ok = await JS.InvokeAsync<bool>("confirm",
+            $"Delete {user.FullName} and all their expenses?");
+        if (!ok) return;
+
+        if (await AdminService.DeleteUserAsync(user.Id))
+        {
+            message = null;
+            await LoadAsync();
+        }
+        else
+        {
+            message = "Delete failed.";
+        }
+    }
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+}

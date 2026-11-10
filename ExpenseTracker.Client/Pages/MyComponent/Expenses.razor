@@ -1,0 +1,284 @@
+﻿@page "/"
+@page "/expenses"
+@layout AuthLayout
+@inject ExpenseService ExpenseService
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Expenses</PageTitle>
+
+<div class="bg-light min-vh-100">
+
+    <!-- Nav Bar-->
+    <nav class="navbar navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <span class="navbar-brand fw-bold">ExpenseTracker</span>
+
+            <div class="d-flex align-items-center gap-3">
+                @if (isAdmin)
+                {
+                    <a class="btn btn-outline-light btn-sm" href="admin">Dashboard</a>
+                }
+
+                <div class="d-flex align-items-center gap-2 text-white">
+                    <span class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center fw-bold"
+                          style="width:36px;height:36px;">
+                        @(string.IsNullOrEmpty(userName) ? "?" : userName[0].ToString().ToUpper())
+                    </span>
+                    <span>@userName</span>
+                </div>
+                <button class="btn btn-outline-light btn-sm" @onclick="Logout">Logout</button>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container py-4">
+
+        @if (message != null)
+        {
+            <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+                @message
+                <button type="button" class="btn-close" @onclick="() => message = null"></button>
+            </div>
+        }
+
+        <div class="row g-4">
+
+            <!-- Form -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white fw-semibold">
+                        @(isEdit ? "Edit Expense" : "Add Expense")
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="newExpense" OnValidSubmit="HandleSubmit">
+                            <DataAnnotationsValidator />
+
+                            <div class="mb-3">
+                                <label class="form-label">Title</label>
+                                <InputText class="form-control" @bind-Value="newExpense.Title" />
+                                <ValidationMessage For="() => newExpense.Title" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Price</label>
+                                <InputNumber class="form-control" @bind-Value="newExpense.Amount" />
+                                <ValidationMessage For="() => newExpense.Amount" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <InputSelect class="form-select" @bind-Value="newExpense.Category">
+                                    <option value="">-- Select --</option>
+                                    <option>Food and Drinks</option>
+                                    <option>Transport</option>
+                                    <option>Shopping</option>
+                                    <option>Education</option>
+                                    <option>Entertainment</option>
+                                    <option>Bills</option>
+                                    <option>Other</option>
+                                </InputSelect>
+                                <ValidationMessage For="() => newExpense.Category" />
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Date</label>
+                                <InputDate class="form-control" @bind-Value="newExpense.Date" />
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn @(isEdit ? "btn-success" : "btn-primary") flex-grow-1">
+                                    @(isEdit ? "Save Changes" : "Add Expense")
+                                </button>
+                                @if (isEdit)
+                                {
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                                }
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">My Expenses</span>
+                        @if (expenses != null && expenses.Count > 0)
+                        {
+                            <span class="badge bg-primary fs-6">Total: @expenses.Sum(x => x.Amount).ToString("N2")</span>
+                        }
+                    </div>
+
+                    <div class="card-body p-0">
+                        @if (expenses == null)
+                        {
+                            <div class="text-center p-5">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                        }
+                        else if (expenses.Count == 0)
+                        {
+                            <div class="text-center text-muted p-5">No expenses yet. Add your first one!</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Price</th>
+                                            <th>Category</th>
+                                            <th>Date</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var e in expenses)
+                                        {
+                                            <tr>
+                                                <td>@e.Title</td>
+                                                <td class="fw-semibold">@e.Amount.ToString("N2")</td>
+                                                <td><span class="badge text-bg-secondary">@e.Category</span></td>
+                                                <td>@e.Date.ToString("yyyy-MM-dd")</td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => EditExpense(e)">Edit</button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteExpense(e.Id)">Delete</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Expense>? expenses;
+    private Expense newExpense = new() { Date = DateTime.Today };
+    private string? message;
+    private bool isError;
+    private bool isEdit;
+    private bool isAdmin;
+    private string userName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Auth.IsLoggedInAsync())
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        userName = await Auth.GetFullNameAsync();
+        isAdmin = await Auth.IsAdminAsync();
+        await LoadExpenses();
+    }
+
+    private void ShowMessage(string text, bool error = false)
+    {
+        message = text;
+        isError = error;
+    }
+
+    private async Task LoadExpenses()
+    {
+        try
+        {
+            expenses = await ExpenseService.GetAllAsync();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            await Logout();
+        }
+        catch (Exception ex)
+        {
+            expenses = new List<Expense>();
+            ShowMessage(ex.Message, true);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            if (isEdit)
+            {
+                await ExpenseService.UpdateAsync(newExpense);
+                ShowMessage("Expense updated successfully.");
+            }
+            else
+            {
+                var success = await ExpenseService.CreateAsync(newExpense);
+                if (!success)
+                {
+                    ShowMessage("Something went wrong.", true);
+                    return;
+                }
+                ShowMessage("Expense added successfully.");
+            }
+
+            ResetForm();
+            await LoadExpenses();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage(ex.Message, true);
+        }
+    }
+
+    private void EditExpense(Expense expense)
+    {
+        newExpense = new Expense
+        {
+            Id = expense.Id,
+            Title = expense.Title,
+            Amount = expense.Amount,
+            Category = expense.Category,
+            Date = expense.Date
+        };
+
+        isEdit = true;
+        message = null;
+    }
+
+    private async Task DeleteExpense(int id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this expense?"))
+            return;
+
+        var success = await ExpenseService.DeleteAsync(id);
+        if (success)
+        {
+            ShowMessage("Expense deleted successfully.");
+            await LoadExpenses();
+        }
+        else
+        {
+            ShowMessage("Failed to delete expense.", true);
+        }
+    }
+
+    private void CancelEdit() => ResetForm();
+
+    private void ResetForm()
+    {
+        newExpense = new Expense { Date = DateTime.Today };
+        isEdit = false;
+    }
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+}

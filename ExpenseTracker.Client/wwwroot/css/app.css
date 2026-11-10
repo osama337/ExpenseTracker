@@ -1,0 +1,60 @@
+﻿
+.auth-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    color: #1e293b;
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+    .auth-card h2,
+    .auth-card h3,
+    .auth-card .form-label {
+        color: #1e293b;
+    }
+
+    .auth-card .text-secondary {
+        color: #64748b !important;
+    }
+
+.brand-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 0.75rem;
+    border-radius: 14px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 1.6rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.brand-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.auth-card .form-control {
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+}
+
+.auth-card .btn-primary {
+    padding: 0.7rem;
+    border-radius: 10px;
+    font-weight: 600;
+}

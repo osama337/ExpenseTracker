@@ -1,0 +1,125 @@
+﻿@page "/register"
+@layout AuthLayout
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Register</PageTitle>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+
+        <div class="text-center mb-4">
+            <div class="brand-icon">E</div>
+            <h2 class="brand-title">ExpenseTracker</h2>
+            <p class="text-secondary mb-0">Take control of your finances.</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger py-2">@ErrorMessage</div>
+        }
+
+        <EditForm Model="@Model" OnValidSubmit="RegisterAsync">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Full Name</label>
+                <InputText @bind-Value="Model.FullName"
+                           class="form-control"
+                           placeholder="Enter your full name" />
+                <ValidationMessage For="@(() => Model.FullName)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email Address</label>
+                <InputText @bind-Value="Model.Email"
+                           class="form-control"
+                           placeholder="name@example.com" />
+                <ValidationMessage For="@(() => Model.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <InputText @bind-Value="Model.Password"
+                           type="password"
+                           class="form-control"
+                           placeholder="Password" />
+                <ValidationMessage For="@(() => Model.Password)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Confirm Password</label>
+                <InputText @bind-Value="Model.ConfirmPassword"
+                           type="password"
+                           class="form-control"
+                           placeholder="Confirm your password" />
+                <ValidationMessage For="@(() => Model.ConfirmPassword)" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mt-2" disabled="@IsLoad">
+                @if (IsLoad)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>Creating account...</span>
+                }
+                else
+                {
+                    <span>Create Account</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="text-center mt-4">
+            <span class="text-secondary">Already have an account?</span>
+            <a href="/login">Sign in</a>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private RegisterRequest Model = new();
+    private string ErrorMessage = "";
+    private bool IsLoad;
+
+    private async Task RegisterAsync()
+    {
+        IsLoad = true;
+        ErrorMessage = "";
+
+        try
+        {
+            var response = await AuthService.RegisterAsync(Model);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                ErrorMessage = await ReadErrorAsync(response);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = "Unable to connect to the server.";
+        }
+        finally
+        {
+            IsLoad = false;
+        }
+    }
+
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var errors = await response.Content.ReadFromJsonAsync<List<string>>();
+            if (errors is { Count: > 0 })
+                return string.Join(" ", errors);
+        }
+        catch { }
+
+        return "Registration failed. Please check your data.";
+    }
+}
